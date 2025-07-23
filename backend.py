@@ -81,26 +81,28 @@ def desofuscar(texto: str, modo: int) -> str:
 
 @app.post("/verificar")
 def verificar_acceso(datos: Credenciales):
-    combos = [(1, 3), (2, 2), (3, 1)]
+    # Combinaciones permitidas (usuario_modo, clave_modo)
+    combos = [
+        (1, 3),
+        (2, 2),
+        (3, 1)
+    ]
+    usuarios_posibles = []
+    claves_posibles = []
     for user_obs, pass_obs in USUARIOS_OFUSCADOS.items():
-        usuarios_posibles = desofuscar(user_obs)
-        claves_posibles = desofuscar(pass_obs)
-
-        for idx, (modo_usuario, modo_clave) in enumerate(combos):
-            posible_usuario = usuarios_posibles[modo_usuario - 1]
-            posible_clave = claves_posibles[modo_clave - 1]
-
-            if datos.usuario == posible_usuario and datos.clave == posible_clave:
+        for usuario_modo, clave_modo in combos:
+            usuario_real = desofuscar(user_obs, usuario_modo)
+            clave_real = desofuscar(pass_obs, clave_modo)
+            usuarios_posibles.append((usuario_real, usuario_modo))
+            claves_posibles.append((clave_real, clave_modo))
+            if datos.usuario == usuario_real and datos.clave == clave_real:
                 return {
                     "acceso": "ok",
-                    "debug": {
-                        "usuarios": usuarios_posibles,
-                        "claves": claves_posibles,
-                        "modo_usuario": modo_usuario,
-                        "modo_clave": modo_clave
-                    }
+                    "usuario_elegido": usuario_real,
+                    "clave_elegida": clave_real,
+                    "modo_usuario": usuario_modo,
+                    "modo_clave": clave_modo
                 }
-
     return {
         "acceso": "denegado",
         "debug": {
@@ -110,6 +112,7 @@ def verificar_acceso(datos: Credenciales):
             "modo_clave": None
         }
     }
+
 
 
 
