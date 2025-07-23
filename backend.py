@@ -49,8 +49,6 @@ def desofuscar(texto: str, modo: int) -> str:
     return ''.join(reales)[::-1]  # invertir al final
 
 
-
-
 # Usuarios ofuscados
 USUARIOS_OFUSCADOS = {
     #thony - 12345 - modo 1
@@ -62,21 +60,6 @@ USUARIOS_OFUSCADOS = {
 class Credenciales(BaseModel):
     usuario: str
     clave: str
-
-
-def desofuscar(texto: str, modo: int) -> str:
-    paso1, paso2 = PATRONES[modo]
-    i = 0
-    reales = []
-    alterna = True
-    while i < len(texto):
-        n = paso1 if alterna else paso2
-        i += n  # saltar basura
-        if i >= len(texto): break
-        reales.append(texto[i])  # guardar caracter real
-        i += 1  # saltar el real
-        alterna = not alterna
-    return ''.join(reales)[::-1]  # invertir al final
 
 
 @app.post("/verificar")
