@@ -1,6 +1,7 @@
 #@title 1
-!pip install icrawler
-!apt-get install -y fonts-dejavu-core
+import subprocess
+subprocess.run(["pip", "install", "icrawler"])
+subprocess.run(["apt-get", "install", "-y", "fonts-dejavu-core"])
 #@title 2
 from logging import disable
 import os, shutil, cv2, textwrap, re
