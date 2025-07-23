@@ -17,13 +17,13 @@ def ofuscar(texto: str, modo: int) -> str:
     texto = texto[::-1]  # Invertir
     paso1, paso2 = PATRONES[modo]
     salida = ""
-    i = 0
     alterna = True
-    while i < len(texto):
-        n = paso1 if alterna else paso2
-        salida += ''.join(random.choices(string.ascii_letters + string.digits, k=n))
-        salida += texto[i]
-        i += 1
+    for c in texto:
+        n1 = paso1 if alterna else paso2
+        n2 = paso2 if alterna else paso1
+        basura_inicio = ''.join(random.choices(string.ascii_letters + string.digits, k=n1))
+        basura_final = ''.join(random.choices(string.ascii_letters + string.digits, k=n2))
+        salida += basura_inicio + c + basura_final
         alterna = not alterna
     return salida
 
@@ -34,15 +34,17 @@ def desofuscar(ofuscado: str) -> list:
         i = 0
         alterna = True
         while i < len(ofuscado):
-            n = paso1 if alterna else paso2
-            i += n
+            n1 = paso1 if alterna else paso2
+            n2 = paso2 if alterna else paso1
+            i += n1
             if i >= len(ofuscado):
                 break
             texto += ofuscado[i]
-            i += 1
+            i += 1 + n2
             alterna = not alterna
         posibles.append(texto[::-1])
     return posibles
+
 
 # Usuarios ofuscados
 USUARIOS_OFUSCADOS = {
