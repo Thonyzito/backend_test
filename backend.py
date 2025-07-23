@@ -54,10 +54,8 @@ def desofuscar(texto: str, modo: int) -> str:
 
 # Usuarios ofuscados
 USUARIOS_OFUSCADOS = {
-    # usuario = usuario1 -> '1oirausu' -> basura alternada (inicio y fin) usando patrón 5-4 (caso 3)
-    "pre4t1jsueoue7dyijshernxv34aañpxu56df2smxnlujshu3": "inicio7yyyb9lllaaavvveee111fin23",  # test
-    # usuario = test -> 'tset' -> basura usando patrón 3-4 (caso 1)
-    "aaa1btsez334ttoobqw": "ccc0avcesop5ssrrww",  # acceso2025
+    #thony - 12345
+    "PlGynvqRnG0vofB40hYq0tKYMI": "woByG5ONRo4voL3N3cfGO2rBXNj1mrDb",  # test
 }
 
 class Credenciales(BaseModel):
