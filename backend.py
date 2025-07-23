@@ -34,21 +34,20 @@ def ofuscar(texto: str, modo: int) -> str:
 
     return salida
     
-def desofuscar(texto: str) -> list:
-    posibles = []
-    for paso1, paso2 in PATRONES.values():
-        i = 0
-        reales = []
-        alterna = True
-        while i < len(texto):
-            n = paso1 if alterna else paso2
-            i += n  # saltar basura
-            if i >= len(texto): break
-            reales.append(texto[i])  # guardar caracter real
-            i += 1  # saltar el real
-            alterna = not alterna
-        posibles.append(''.join(reales)[::-1])  # invertir al final
-    return posibles
+def desofuscar(texto: str, modo: int) -> str:
+    paso1, paso2 = PATRONES[modo]
+    i = 0
+    reales = []
+    alterna = True
+    while i < len(texto):
+        n = paso1 if alterna else paso2
+        i += n  # saltar basura
+        if i >= len(texto): break
+        reales.append(texto[i])  # guardar caracter real
+        i += 1  # saltar el real
+        alterna = not alterna
+    return ''.join(reales)[::-1]  # invertir al final
+
 
 
 
