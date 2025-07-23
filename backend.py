@@ -101,4 +101,6 @@ def verificar_acceso(datos: Credenciales):
 
 @app.get("/codigo")
 def enviar_codigo():
-    return {"codigo": "print(\"¡Bienvenido, tienes acceso!\")"}
+    with open("interfaz.py", "r", encoding="utf-8") as f:
+        codigo = f.read()
+    return {"codigo": codigo}
