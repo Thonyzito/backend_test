@@ -33,44 +33,56 @@ def ofuscar(texto: str, modo: int) -> str:
             salida += basura_final
 
     return salida
-def desofuscar(texto: str, modo: int) -> str:
-    paso1, paso2 = PATRONES[modo]
-    salida = ""
-    i = 0
-    alterna = True
-    while i < len(texto):
-        n = paso1 if alterna else paso2
-        i += n  # saltar basura inicial
-        if i >= len(texto):
-            break
-        salida += texto[i]  # capturar carácter real
-        i += 1  # avanzar 1 posición
-        n = paso2 if alterna else paso1
-        i += n  # saltar basura final
-        alterna = not alterna
-    return salida[::-1]  # invertir para recuperar original
+    
+def desofuscar(texto: str) -> list:
+    posibles = []
+    for paso1, paso2 in PATRONES.values():
+        i = 0
+        reales = []
+        alterna = True
+        while i < len(texto):
+            n = paso1 if alterna else paso2
+            i += n  # saltar basura
+            if i >= len(texto): break
+            reales.append(texto[i])  # guardar caracter real
+            i += 1  # saltar el real
+            alterna = not alterna
+        posibles.append(''.join(reales)[::-1])  # invertir al final
+    return posibles
 
 
 
 # Usuarios ofuscados
 USUARIOS_OFUSCADOS = {
-    #thony - 12345
-    "PlGynvqRnG0vofB40hYq0tKYMI": "woByG5ONRo4voL3N3cfGO2rBXNj1mrDb",  # test
+    #thony - 12345 - modo 1
+    "PlGynvqRnG0vofB40hYq0tKYMI": "E0j0G5QM2r4XA6VH3hSsu2Ilb8O18cU2",  # test1
+    "MonR0H31QryXiuDRZfn6HoGUuAsXKhoOtEOBKWuS": "YDHVBT065w5OcH0GU94sm3z5uQOfr2HK1MPAMP4r",  # test2
+    "gsYPT2LK0dy0JNnXnocFdo1SOZYhjS04ttYas5": "rB17Bk5E6yxH5u72q4KHB3abhH2CPk1jURs",  # test3
 }
 
 class Credenciales(BaseModel):
     usuario: str
     clave: str
 
+
 @app.post("/verificar")
 def verificar_acceso(datos: Credenciales):
+    # Combinaciones permitidas (usuario_modo, clave_modo)
+    combos = [
+        (1, 3),
+        (2, 2),
+        (3, 1)
+    ]
+
     for user_obs, pass_obs in USUARIOS_OFUSCADOS.items():
-        posibles_usuarios = desofuscar(user_obs)
-        if datos.usuario in posibles_usuarios:
-            posibles_claves = desofuscar(pass_obs)
-            if datos.clave in posibles_claves:
-                return {"acceso": "ok"}
+        for usuario_modo, clave_modo in combos:
+            usuarios_posibles = desofuscar(user_obs, usuario_modo)
+            if datos.usuario == usuarios_posibles:
+                claves_posibles = desofuscar(pass_obs, clave_modo)
+                if datos.clave == claves_posibles:
+                    return {"acceso": "ok"}
     return {"acceso": "denegado"}
+
 
 @app.get("/codigo")
 def enviar_codigo():
