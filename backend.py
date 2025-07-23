@@ -64,6 +64,21 @@ class Credenciales(BaseModel):
     clave: str
 
 
+def desofuscar(texto: str, modo: int) -> str:
+    paso1, paso2 = PATRONES[modo]
+    i = 0
+    reales = []
+    alterna = True
+    while i < len(texto):
+        n = paso1 if alterna else paso2
+        i += n  # saltar basura
+        if i >= len(texto): break
+        reales.append(texto[i])  # guardar caracter real
+        i += 1  # saltar el real
+        alterna = not alterna
+    return ''.join(reales)[::-1]  # invertir al final
+
+
 @app.post("/verificar")
 def verificar_acceso(datos: Credenciales):
     # Combinaciones permitidas (usuario_modo, clave_modo)
@@ -75,11 +90,17 @@ def verificar_acceso(datos: Credenciales):
 
     for user_obs, pass_obs in USUARIOS_OFUSCADOS.items():
         for usuario_modo, clave_modo in combos:
-            usuarios_posibles = desofuscar(user_obs, usuario_modo)
-            if datos.usuario == usuarios_posibles:
-                claves_posibles = desofuscar(pass_obs, clave_modo)
-                if datos.clave == claves_posibles:
-                    return {"acceso": "ok"}
+            usuario_real = desofuscar(user_obs, usuario_modo)
+            if datos.usuario == usuario_real:
+                clave_real = desofuscar(pass_obs, clave_modo)
+                if datos.clave == clave_real:
+                    return {
+                        "acceso": "ok",
+                        "usuario_elegido": usuario_real,
+                        "clave_elegida": clave_real,
+                        "modo_usuario": usuario_modo,
+                        "modo_clave": clave_modo
+                    }
     return {"acceso": "denegado"}
 
 
