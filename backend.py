@@ -10,7 +10,7 @@ app = FastAPI()
 PATRONES = {
     1: (3, 4),
     2: (7, 2),
-    3: (4, 5),
+    3: (5, 4),
 }
 
 # Función de ofuscación
@@ -55,8 +55,6 @@ USUARIOS_OFUSCADOS = {
     "PlGynvqRnG0vofB40hYq0tKYMI": "E0j0G5QM2r4XA6VH3hSsu2Ilb8O18cU2",  # test1
     "MonR0H31QryXiuDRZfn6HoGUuAsXKhoOtEOBKWuS": "YDHVBT065w5OcH0GU94sm3z5uQOfr2HK1MPAMP4r",  # test2
     "gsYPT2LK0dy0JNnXnocFdo1SOZYhjS04ttYas5": "rB17Bk5E6yxH5u72q4KHB3abhH2CPk1jURs",  # test3
-    "HIK9zxRXY8zVHGManOD61jjn4p": "qK2tjBnWtH1SexKeMjOYH",
-    "QA5vgKAo4Pttlxem0eizEz67wuDbPynunNsEdeFNocvhD2xrLHHtj3": "l39nsXw+SoMdWUay9youjcKtVhQUonDAivul0fpV5sECNWt31Zl.6CsDQqnU79e03rPQCZqFH38YTGx8YbTN",
 }
 
 class Credenciales(BaseModel):
