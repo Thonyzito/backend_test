@@ -50,7 +50,7 @@ def desofuscar(texto: str, modo: int) -> str:
 
 
 # Usuarios ofuscados
-USUARIOS_OFUSCADOS = {
+US_OF = {
     #thony - 12345 - modo 1
     "7fkuhnynF8i9DkNIDWmzydFNwaQE4aVu":"3xAqhnbtalrXNSfjP5azNmljolwrNt0Oong14wbNh1voiJJszFiti9cGN81HVze76y4KF1VJOocWrgE5D0mbpX0",
     "OWnkaYmvleNLVaGQODOWMHJuxoaT4OrL": "dlA5GdKx49Jr3expG2us81XzdG",
@@ -71,7 +71,7 @@ def verificar_acceso(datos: Credenciales):
     ]
     usuarios_posibles = []
     claves_posibles = []
-    for user_obs, pass_obs in USUARIOS_OFUSCADOS.items():
+    for user_obs, pass_obs in US_OF.items():
         for usuario_modo, clave_modo in combos:
             usuario_real = desofuscar(user_obs, usuario_modo)
             clave_real = desofuscar(pass_obs, clave_modo)
