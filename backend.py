@@ -10,7 +10,7 @@ app = FastAPI()
 PATRONES = {
     1: (3, 4),
     2: (7, 2),
-    3: (5, 4),
+    3: (4, 5),
 }
 
 # Función de ofuscación
