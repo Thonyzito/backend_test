@@ -95,13 +95,6 @@ def verificar_acceso(datos: Credenciales):
         }
     }
 
-
-
-@app.get("/codigo_us_of")
-def enviar_codigo():
-    with open("us_of.py", "r", encoding="utf-8") as f:
-        codigo_us_of = f.read()
-    return {"codigo": codigo_us_of}
     
 @app.get("/codigo")
 def enviar_codigo():
@@ -109,8 +102,3 @@ def enviar_codigo():
         codigo = f.read()
     return {"codigo": codigo}
 
-@app.get("/codigo2")
-def enviar_codigo2():
-    with open("interfaz_ADMIN.py", "r", encoding="utf-8") as f:
-        codigo2 = f.read()
-    return {"codigo": codigo2}
