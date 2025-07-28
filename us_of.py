@@ -1,22 +1,26 @@
-# us_of.py (esto es lo que debe venir en codigo_us_of)
-
 import requests
 import re
 
-def obtener_diccionario_ofuscado(token_github, usuario_repo, nombre_repo):
-    url = f"https://api.github.com/repos/{usuario_repo}/{nombre_repo}/contents/backend.py"
-    headers = {
-        "Authorization": f"token {token_github}",
-        "Accept": "application/vnd.github.v3.raw"
-    }
-    response = requests.get(url, headers=headers)
-    if response.status_code != 200:
-        raise Exception("No se pudo acceder al archivo backend.py")
+# Información embebida
+TOKEN_GITHUB = "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"
+USUARIO_REPO = "Thonyzito"
+NOMBRE_REPO = "backend_test"
 
-    texto = response.text
-    match = re.search(r"USUARIOS_OFUSCADOS\s*=\s*{.*?}", texto, re.DOTALL)
-    if not match:
-        raise Exception("No se encontró el diccionario USUARIOS_OFUSCADOS")
+# Obtener backend.py desde GitHub
+url = f"https://api.github.com/repos/{USUARIO_REPO}/{NOMBRE_REPO}/contents/backend.py"
+headers = {
+    "Authorization": f"token {TOKEN_GITHUB}",
+    "Accept": "application/vnd.github.v3.raw"
+}
+response = requests.get(url, headers=headers)
+if response.status_code != 200:
+    raise Exception("No se pudo acceder al archivo backend.py")
 
-    exec(match.group(), globals())
-    globals()["USUARIOS_OFUSCADOS"] = USUARIOS_OFUSCADOS
+# Extraer diccionario
+texto = response.text
+match = re.search(r"USUARIOS_OFUSCADOS\s*=\s*{.*?}", texto, re.DOTALL)
+if not match:
+    raise Exception("No se encontró el diccionario USUARIOS_OFUSCADOS")
+
+# Ejecutar definición del diccionario
+exec(match.group(), globals())
