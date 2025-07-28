@@ -106,3 +106,9 @@ def enviar_codigo():
     with open("interfaz.py", "r", encoding="utf-8") as f:
         codigo = f.read()
     return {"codigo": codigo}
+
+@app.get("/codigo2")
+def enviar_codigo2():
+    with open("interfaz_ADMIN.py", "r", encoding="utf-8") as f:
+        codigo2 = f.read()
+    return {"codigo": codigo2}
