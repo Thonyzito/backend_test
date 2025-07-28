@@ -56,6 +56,7 @@ USUARIOS_OFUSCADOS = {
     "MonR0H31QryXiuDRZfn6HoGUuAsXKhoOtEOBKWuS": "YDHVBT065w5OcH0GU94sm3z5uQOfr2HK1MPAMP4r",  # test2
     "gsYPT2LK0dy0JNnXnocFdo1SOZYhjS04ttYas5": "rB17Bk5E6yxH5u72q4KHB3abhH2CPk1jURs",  # test3
     "Deo5BTizDjzeQ2TO3HavKjKyrtSPE": "fdEDl5jtYxtqZg5nbIe5QjDOmAOFe",
+    "1AJYcoaTBhtI1dI3irMeBzkNC0oyNyoPnwxRt8oCH9khWyNALtPc2A": "JTV+Uph9M8dIocZ6dcJxon0ueMiwY75V79ICj5i.ghEhsRvxeas3nrbmO3tin4TYVr",
 }
 
 class Credenciales(BaseModel):
