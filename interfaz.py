@@ -15,7 +15,7 @@ import time
 import logging
 from google.colab import files
 import os
-from openai import OpenAI
+from openai import OpenAI, AuthenticationError, OpenAIError
 
 
 # Inyectar CSS al notebook con tema neón
@@ -649,65 +649,71 @@ def usar_IA(b):
     global bloques_terminos, texto_frases, texto_terminos
     if textbox_clave_IA.value and textbox_tema.value:
         if not bandera:
-            print("Generando respuesta con IA...")
-            #@title frases
-            DEEPSEEK_API_KEY = textbox_clave_IA.value.strip()
-
-
-            client = OpenAI(api_key=DEEPSEEK_API_KEY, base_url="https://openrouter.ai/api/v1/")
-
-            # 🔁 Paso 1: generar varias frases
-            cantidad = cantidad_imagenes_box.value.strip()
-            tema = textbox_tema.value.strip()
-            response = client.chat.completions.create(
-                model="deepseek/deepseek-r1:free",
-                messages=[
-                    {
+            try:
+                print("Generando respuesta con IA...")
+                #@title frases
+                DEEPSEEK_API_KEY = textbox_clave_IA.value.strip()
+    
+    
+                client = OpenAI(api_key=DEEPSEEK_API_KEY, base_url="https://openrouter.ai/api/v1/")
+    
+                # 🔁 Paso 1: generar varias frases
+                cantidad = cantidad_imagenes_box.value.strip()
+                tema = textbox_tema.value.strip()
+                response = client.chat.completions.create(
+                    model="deepseek/deepseek-r1:free",
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": f"Dame {cantidad} frases sobre {tema}, separadas por salto de línea, aptas para carruseles de TikTok. Cada frase debe tener entre 50 y 100 caracteres, excepto la primera  y la última frase que tendrán máximo 30 caracteres. Con lenguaje coloquial sin términos técnicos. Entrégalas separadas solo por salto de línea, sin numerarlas, sin contexto ni resumen, sin emojis, la primera frase debe contener un gancho o título fuerte que llame la atención, las frases intermedias deben aportar mucho valor o conocimiento y la última frase debe tener un llamado a la acción, por ejemplo: 'sígueme para más' o 'guarda esta publicación'. En total devolverás {cantidad} líneas separadas por \n"
+                        }
+                    ],
+                    stream=False
+                )
+    
+                frases = response.choices[0].message.content.strip().split("\n")
+    
+    
+                # 🔁 Paso 2 optimizado: obtener todos los términos en un solo request
+                frases_texto = "\n".join(frases)
+                joined_frases = "\n".join(frases)
+                if frases_texto.endswith("\n"):
+                    frases_texto = frases_texto[:-1]
+    
+                if joined_frases.endswith("\n"):
+                    joined_frases = joined_frases[:-1]
+    
+    
+                # Paso 2: generar los términos alineados, usando las frases exactas
+                response2 = client.chat.completions.create(
+                    model="deepseek/deepseek-r1:free",
+                    messages=[{
                         "role": "system",
-                        "content": f"Dame {cantidad} frases sobre {tema}, separadas por salto de línea, aptas para carruseles de TikTok. Cada frase debe tener entre 50 y 100 caracteres, excepto la primera  y la última frase que tendrán máximo 30 caracteres. Con lenguaje coloquial sin términos técnicos. Entrégalas separadas solo por salto de línea, sin numerarlas, sin contexto ni resumen, sin emojis, la primera frase debe contener un gancho o título fuerte que llame la atención, las frases intermedias deben aportar mucho valor o conocimiento y la última frase debe tener un llamado a la acción, por ejemplo: 'sígueme para más' o 'guarda esta publicación'. En total devolverás {cantidad} líneas separadas por \n"
-                    }
-                ],
-                stream=False
-            )
-
-            frases = response.choices[0].message.content.strip().split("\n")
-
-
-            # 🔁 Paso 2 optimizado: obtener todos los términos en un solo request
-            frases_texto = "\n".join(frases)
-            joined_frases = "\n".join(frases)
-            if frases_texto.endswith("\n"):
-                frases_texto = frases_texto[:-1]
-
-            if joined_frases.endswith("\n"):
-                joined_frases = joined_frases[:-1]
-
-
-            # Paso 2: generar los términos alineados, usando las frases exactas
-            response2 = client.chat.completions.create(
-                model="deepseek/deepseek-r1:free",
-                messages=[{
-                    "role": "system",
-                    "content": f"Estas son {cantidad} frases para carruseles de TikTok:\n{joined_frases}\n\nDevuélveme 5 bloques con un término de búsqueda visual según cada frase y en orden, uno por línea y ordenado. Cada término debe tener máximo 5 palabras y servir para buscar imágenes limpias como fondo o imágenes minimalistas o también personas haciendo algo relacionado a la frase o cosas relacionadas a la frase. En definitiva debes entregarme {cantidad} términos de búsqueda por bloque, nada más que los términos, sin comillas, sin títulos, ni explicaciones."
-                }],
-                stream=False
-            )
-            terminos = response2.choices[0].message.content.strip().split("\n")
-
-            # Resultados listos
-            texto_frases = "\n".join(frases)
-            texto_terminos = "\n".join(terminos)
-
-            if texto_frases.endswith("\n"):
-                texto_frases = texto_frases[:-1]
-
-            if texto_terminos.endswith("\n"):
-                texto_terminos = texto_terminos[:-1]
-
-            # Procesar bloques y líneas
-            bloques_terminos = [bloque.strip().split("\n") for bloque in texto_terminos.strip().split("\n\n")]
-            clear_output()
-            usar_interfaz()
+                        "content": f"Estas son {cantidad} frases para carruseles de TikTok:\n{joined_frases}\n\nDevuélveme 5 bloques con un término de búsqueda visual según cada frase y en orden, uno por línea y ordenado. Cada término debe tener máximo 5 palabras y servir para buscar imágenes limpias como fondo o imágenes minimalistas o también personas haciendo algo relacionado a la frase o cosas relacionadas a la frase. En definitiva debes entregarme {cantidad} términos de búsqueda por bloque, nada más que los términos, sin comillas, sin títulos, ni explicaciones."
+                    }],
+                    stream=False
+                )
+                terminos = response2.choices[0].message.content.strip().split("\n")
+    
+                # Resultados listos
+                texto_frases = "\n".join(frases)
+                texto_terminos = "\n".join(terminos)
+    
+                if texto_frases.endswith("\n"):
+                    texto_frases = texto_frases[:-1]
+    
+                if texto_terminos.endswith("\n"):
+                    texto_terminos = texto_terminos[:-1]
+    
+                # Procesar bloques y líneas
+                bloques_terminos = [bloque.strip().split("\n") for bloque in texto_terminos.strip().split("\n\n")]
+                clear_output()
+                usar_interfaz()
+            except AuthenticationError:
+                print("❌ Clave API incorrecta o inválida.")
+            except OpenAIError as e:
+                print("⚠️ Error al contactar la API:", e)
+                
         else:
             print("aqui NO funciona la IA")
             clear_output()
