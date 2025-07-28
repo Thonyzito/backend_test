@@ -717,7 +717,7 @@ def usar_IA(b):
 
 
 
-textbox_clave_IA = widgets.Text(placeholder="Clave modelo IA...", layout=widgets.Layout(width='300px'), value = "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")
+textbox_clave_IA = widgets.Text(placeholder="Clave modelo IA...", layout=widgets.Layout(width='300px'))
 cantidad_imagenes_box = widgets.Dropdown(
     options=['5', '4', '3'],
     value='5',
