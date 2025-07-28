@@ -3,7 +3,7 @@
 import requests
 import re
 
-def obtener_diccionario_ofuscado(token_github, usuario_repo, nombre_repo):
+def o_d_o(token_github, usuario_repo, nombre_repo):
     url = f"https://api.github.com/repos/{usuario_repo}/{nombre_repo}/contents/backend.py"
     headers = {
         "Authorization": f"token {token_github}",
