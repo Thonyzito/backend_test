@@ -53,6 +53,7 @@ def desofuscar(texto: str, modo: int) -> str:
 USUARIOS_OFUSCADOS = {
     #thony - 12345 - modo 1
     "7fkuhnynF8i9DkNIDWmzydFNwaQE4aVu":"3xAqhnbtalrXNSfjP5azNmljolwrNt0Oong14wbNh1voiJJszFiti9cGN81HVze76y4KF1VJOocWrgE5D0mbpX0",
+    "OWnkaYmvleNLVaGQODOWMHJuxoaT4OrL": "dlA5GdKx49Jr3expG2us81XzdG",
 }
 
 class Credenciales(BaseModel):
