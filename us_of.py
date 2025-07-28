@@ -14,9 +14,9 @@ def o_d_o(token_github, usuario_repo, nombre_repo):
         raise Exception("No se pudo acceder al archivo backend.py")
 
     texto = response.text
-    match = re.search(r"USUARIOS_OFUSCADOS\s*=\s*{.*?}", texto, re.DOTALL)
+    match = re.search(r"US_OF\s*=\s*{.*?}", texto, re.DOTALL)
     if not match:
-        raise Exception("No se encontró el diccionario USUARIOS_OFUSCADOS")
+        raise Exception("No se encontró el diccionario US_OF")
 
     exec(match.group(), globals())
-    globals()["USUARIOS_OFUSCADOS"] = USUARIOS_OFUSCADOS
+    globals()["US_OF"] = US_OF
