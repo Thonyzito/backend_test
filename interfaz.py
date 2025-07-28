@@ -646,7 +646,7 @@ def usar_interfaz():
 
 
 def usar_IA(b):
-    global bloques_terminos, texto_frases, texto_terminos, textbox_clave_IA, textbox_tema
+    global bloques_terminos, texto_frases, texto_terminos, textbox_clave_IA, textbox_tema, bandera
     if textbox_clave_IA.value and textbox_tema.value:
         if not bandera:
             print("Generando respuesta con IA...")
