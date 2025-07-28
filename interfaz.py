@@ -1,6 +1,8 @@
+#@title 1
 import subprocess
 subprocess.run(["pip", "install", "icrawler"])
 subprocess.run(["apt-get", "install", "-y", "fonts-dejavu-core"])
+
 #@title 2
 from logging import disable
 import os, shutil, cv2, textwrap, re
@@ -13,7 +15,38 @@ import time
 import logging
 from google.colab import files
 import os
+from openai import OpenAI
 
+
+# Inyectar CSS al notebook con tema neón
+display(HTML("""
+<style>
+    /* Entradas tipo input y select con fondo oscuro y bordes neón */
+    .modo-oscuro .widget-select,
+    .modo-oscuro input,
+    select {
+        background-color: #000000 !important;
+        color: #ffffff !important;
+        border: 2px solid #ffffff !important; /* rosa neón */
+        font-weight: bold;
+    }
+
+    /* Botón tipo E: blanco neón */
+    .boton-blanco {
+        background-color: #000000 !important;
+        color: #ffffff !important;
+        border: 4px solid #ffffff !important;
+        font-weight: bold;
+    }
+
+    /* Fondo general del notebook */
+    body, .notebook-container {
+        background-color: #000000 !important;
+        color: #ffffff !important;
+    }
+
+</style>
+"""))
 
 # Silencia todos los logs de icrawler y sus módulos internos
 logging.getLogger().setLevel(logging.CRITICAL)
@@ -33,526 +66,673 @@ guiones = []
 imagenes = []
 indice_imagen = 0
 indice_busqueda = 0
+bloques_terminos = []
 
 subida_realizada = False
 
-
-# Widgets
-textbox_guiones = widgets.Textarea(placeholder="1. Título: Ejemplo de línea 1 con título y texto\nEjemplo de línea 2 solo con texto", layout=widgets.Layout(width='100%', height='100px'))
-textbox_busquedas = widgets.Textarea(placeholder="Buscar imagen para la línea 1\nBuscar imagen para la línea 2", layout=widgets.Layout(width='100%', height='100px'))
-boton_generar_carrusel = widgets.Button(description="🖼️Generar carrusel")
-
-boton_busqueda_ant = widgets.Button(description="◀◀", disabled=True)
-textbox_busqueda_individual = widgets.Text(placeholder="Cambiar imagen...", layout=widgets.Layout(width='300px'))
-boton_busqueda_sig = widgets.Button(description="▶▶", disabled=True)
-
-boton_izq = widgets.Button(description="◀", disabled=True)
-textbox_guion_individual = widgets.Text(placeholder="Cambiar Texto...", layout=widgets.Layout(width='300px'))
-boton_der = widgets.Button(description="▶", disabled=True)
-boton_actualizar = widgets.Button(description="🔁 Actualizar", disabled=True)
-
-seleccionadas = {}  # clave: índice de búsqueda, valor: índice de imagen
-boton_seleccionar_imagen = widgets.Button(description="❌", disabled=True)
-
-uploader_widget = widgets.FileUpload(accept='image/*', multiple=False, layout=widgets.Layout(width='0px', height='0px'))
-boton_reemplazar = widgets.Button(description="📁 Reemplazar Imagen", disabled=True)
-boton_descargar_imagenes = widgets.Button(description="⬇ Descargar", disabled=True)
+indice_bloque_activo = 0
+texto_frases = ""
+texto_terminos = ""
+bandera = False
 
 
+#-------------------------------------------------------------------------------------------------
 
-imagen_widget = widgets.Output()
-contador = widgets.Label()
 
-# Funciones
+# código normal aquí sin tabulación adicional
+def usar_interfaz():
 
-# Inyectar CSS al notebook con tema neón
-display(HTML("""
-<style>
-    /* Textoarea de etiquetas en verde neón */
-    .etiquetas-color-verde textarea {
-        color: #39ff14 !important;  /* verde neón */
-        background-color: #000000 !important;
-        font-weight: bold;
-        border: 4px solid #39ff14 !important;
-    }
+    # Inyectar CSS al notebook con tema neón
+    display(HTML("""
+    <style>
+        /* Textoarea de etiquetas en verde neón */
+        .etiquetas-color-verde textarea {
+            color: #39ff14 !important;  /* verde neón */
+            background-color: #000000 !important;
+            font-weight: bold;
+            border: 4px solid #39ff14 !important;
+        }
 
-    /* Textoarea en azul neón */
-    .etiquetas-color-azul textarea {
-        color: #00ffff !important;  /* cian neón */
-        background-color: #000000 !important;
-        font-weight: bold;
-        border: 4px solid #00ffff !important;
-    }
+        /* Textoarea en azul neón */
+        .etiquetas-color-azul textarea {
+            color: #00ffff !important;  /* cian neón */
+            background-color: #000000 !important;
+            font-weight: bold;
+            border: 4px solid #00ffff !important;
+        }
 
-    .etiquetas-color-verde input {
-        color: #39ff14 !important;
-        background-color: #000000 !important;
-        font-weight: bold;
-        border: 4px solid #39ff14 !important;
-    }
+        .etiquetas-color-verde input {
+            color: #39ff14 !important;
+            background-color: #000000 !important;
+            font-weight: bold;
+            border: 4px solid #39ff14 !important;
+        }
 
-    .etiquetas-color-azul input {
-        color: #00ffff !important;
-        background-color: #000000 !important;
-        font-weight: bold;
-        border: 4px solid #00ffff !important;
-    }
+        .etiquetas-color-azul input {
+            color: #00ffff !important;
+            background-color: #000000 !important;
+            font-weight: bold;
+            border: 4px solid #00ffff !important;
+        }
 
-    /* Entradas tipo input y select con fondo oscuro y bordes neón */
-    .modo-oscuro .widget-select,
-    .modo-oscuro input,
-    select {
-        background-color: #000000 !important;
-        color: #ffffff !important;
-        border: 2px solid #ffffff !important; /* rosa neón */
-        font-weight: bold;
-    }
+        /* Entradas tipo input y select con fondo oscuro y bordes neón */
+        .modo-oscuro .widget-select,
+        .modo-oscuro input,
+        select {
+            background-color: #000000 !important;
+            color: #ffffff !important;
+            border: 2px solid #ffffff !important; /* rosa neón */
+            font-weight: bold;
+        }
 
-    /* Botón tipo A: cyan neón */
-    .boton-cyan {
-        background-color: #00ffff !important;
-        color: #ffffff !important;
-        border: 4px solid #00ffff !important;
-        font-weight: bold;
-    }
+        /* Botón tipo A: cyan neón */
+        .boton-cyan {
+            background-color: #00ffff !important;
+            color: #ffffff !important;
+            border: 4px solid #00ffff !important;
+            font-weight: bold;
+        }
 
-    /* Botón tipo B: verde neón */
-    .boton-verde {
-        background-color: #000000 !important;
-        color: #39ff14 !important;
-        border: 4px solid #39ff14 !important;
-        font-weight: bold;
-    }
+        /* Botón tipo B: verde neón */
+        .boton-verde {
+            background-color: #000000 !important;
+            color: #39ff14 !important;
+            border: 4px solid #39ff14 !important;
+            font-weight: bold;
+        }
 
-    /* Botón tipo B.1: verde neón */
-    .boton-verde-puro {
-        background-color: #39ff14 !important;
-        color: #ffffff !important;
-        border: 4px solid #39ff14 !important;
-        font-weight: bold;
-    }
+        /* Botón tipo B.1: verde neón */
+        .boton-verde-puro {
+            background-color: #39ff14 !important;
+            color: #ffffff !important;
+            border: 4px solid #39ff14 !important;
+            font-weight: bold;
+        }
 
-    /* Botón tipo C: rojo neón */
-    .boton-rojo {
-        background-color: #000000 !important;
-        color: #ff3333 !important;
-        border: 4px solid #ff3333 !important;
-        font-weight: bold;
-    }
+        /* Botón tipo C: rojo neón */
+        .boton-rojo {
+            background-color: #000000 !important;
+            color: #ff3333 !important;
+            border: 4px solid #ff3333 !important;
+            font-weight: bold;
+        }
 
-    /* Botón tipo D: amarillo neón */
-    .boton-amarillo {
-        background-color: #000000 !important;
-        color: #ffff00 !important;
-        border: 4px solid #ffff00 !important;
-        font-weight: bold;
-    }
+        /* Botón tipo D: amarillo neón */
+        .boton-amarillo {
+            background-color: #000000 !important;
+            color: #ffff00 !important;
+            border: 4px solid #ffff00 !important;
+            font-weight: bold;
+        }
 
-    /* Botón tipo E: blanco neón */
-    .boton-blanco {
-        background-color: #000000 !important;
-        color: #ffffff !important;
-        border: 4px solid #ffffff !important;
-        font-weight: bold;
-    }
+        /* Botón tipo E: blanco neón */
+        .boton-blanco {
+            background-color: #000000 !important;
+            color: #ffffff !important;
+            border: 4px solid #ffffff !important;
+            font-weight: bold;
+        }
 
-    /* Fondo general del notebook */
-    body, .notebook-container {
-        background-color: #000000 !important;
-        color: #ffffff !important;
-    }
-    .widget-label {
-        color: #bbbbbb !important;  /* rosa neón */
-        font-weight: bold;
-        font-size: 14px;
-        font-family: 'Arial', monospace;
-    }
+        /* Fondo general del notebook */
+        body, .notebook-container {
+            background-color: #000000 !important;
+            color: #ffffff !important;
+        }
+        .widget-label {
+            color: #bbbbbb !important;  /* rosa neón */
+            font-weight: bold;
+            font-size: 14px;
+            font-family: 'Arial', monospace;
+        }
 
-</style>
-"""))
+    </style>
+    """))
 
-def recortar_centro_cuadrado(img):
-    h, w = img.shape[:2]
-    lado = min(h, w)
-    x = (w - lado) // 2
-    y = (h - lado) // 2
-    return img[y:y+lado, x:x+lado]
+    global bloques_terminos, texto_frases, texto_terminos
+    #if not bloques_terminos:
+    #    print("Error de bandera.")
+    #    return
+    # Widgets
+    boton_bloque = widgets.Button(description="🧠", layout=widgets.Layout(width="50px"))
+    textbox_guiones = widgets.Textarea(placeholder="1. Título: Ejemplo de línea 1 con título y texto\nEjemplo de línea 2 solo con texto", value = texto_frases, layout=widgets.Layout(width='100%', height='100px'))
+    textbox_busquedas = widgets.Textarea(placeholder="Buscar imagen para la línea 1\nBuscar imagen para la línea 2", value = "\n".join(bloques_terminos[0]) if bloques_terminos else "", layout=widgets.Layout(width='100%', height='100px'))
+    boton_generar_carrusel = widgets.Button(description="🖼️Generar carrusel")
 
-def descargar_imagenes(query, carpeta):
-    if os.path.exists(carpeta):
-        shutil.rmtree(carpeta)
-    os.makedirs(carpeta, exist_ok=True)
-    crawler = BingImageCrawler(storage={'root_dir': carpeta})
-    crawler.crawl(keyword=query, max_num=max_imgs)
-    for i, filename in enumerate(sorted(os.listdir(carpeta))):
-        origen = os.path.join(carpeta, filename)
-        destino = os.path.join(carpeta, f"img{i}.jpg")
-        os.rename(origen, destino)
+    boton_busqueda_ant = widgets.Button(description="◀◀", disabled=True)
+    textbox_busqueda_individual = widgets.Text(placeholder="Cambiar imagen...", layout=widgets.Layout(width='300px'))
+    boton_busqueda_sig = widgets.Button(description="▶▶", disabled=True)
+    boton_linea = widgets.Button(description="🧠", layout=widgets.Layout(width="50px"))
 
-def cargar_imagenes(busq_idx):
-    global imagenes, indice_imagen
-    carpeta = os.path.join(carpeta_base, f"busqueda_{busq_idx}")
-    imagenes = sorted([os.path.join(carpeta, f) for f in os.listdir(carpeta) if f.endswith(".jpg")])
-    indice_imagen = 0
-    actualizar_imagen()
 
-def actualizar_imagen():
-    with imagen_widget:
-        clear_output(wait=True)
-        if imagenes:
-            modificada = f"imagen_{indice_busqueda}_{indice_imagen}.jpg"
-            if os.path.exists(modificada):
-                display(widgets.Image(value=open(modificada, 'rb').read(), format='jpg', width=480))
+    boton_izq = widgets.Button(description="◀", disabled=True)
+    textbox_guion_individual = widgets.Text(placeholder="Cambiar Texto...", layout=widgets.Layout(width='300px'))
+    boton_der = widgets.Button(description="▶", disabled=True)
+    boton_actualizar = widgets.Button(description="🔁 Actualizar", disabled=True)
+
+    seleccionadas = {}  # clave: índice de búsqueda, valor: índice de imagen
+    boton_seleccionar_imagen = widgets.Button(description="❌", disabled=True)
+
+    uploader_widget = widgets.FileUpload(accept='image/*', multiple=False, layout=widgets.Layout(width='0px', height='0px'))
+    boton_reemplazar = widgets.Button(description="📁 Reemplazar Imagen", disabled=True)
+    boton_descargar_imagenes = widgets.Button(description="⬇ Descargar", disabled=True)
+
+
+
+    imagen_widget = widgets.Output()
+    contador = widgets.Label()
+
+    # Funciones
+
+
+    def mostrar_bloque(_):
+        global indice_bloque_activo
+        if not bloques_terminos:
+            return
+        indice_bloque_activo = (indice_bloque_activo + 1) % len(bloques_terminos)
+        bloque_actual = bloques_terminos[indice_bloque_activo]
+        textbox_busquedas.value = "\n".join(bloque_actual)
+
+    def mostrar_linea(_):
+        global indice_bloque_activo
+        global indice_busqueda
+
+        if not bloques_terminos:
+            return
+
+        # Ir al siguiente bloque
+        indice_bloque_activo = (indice_bloque_activo + 1) % len(bloques_terminos)
+        bloque_actual = bloques_terminos[indice_bloque_activo]
+
+        # Asegurar que la línea activa no sobrepase el nuevo bloque
+        if indice_busqueda >= len(bloque_actual):
+            indice_busqueda = len(bloque_actual) - 1
+
+        textbox_busqueda_individual.value = bloque_actual[indice_busqueda] if bloque_actual else ""
+
+
+
+    def recortar_centro_cuadrado(img):
+        h, w = img.shape[:2]
+        lado = min(h, w)
+        x = (w - lado) // 2
+        y = (h - lado) // 2
+        return img[y:y+lado, x:x+lado]
+
+    def descargar_imagenes(query, carpeta):
+        if os.path.exists(carpeta):
+            shutil.rmtree(carpeta)
+        os.makedirs(carpeta, exist_ok=True)
+        crawler = BingImageCrawler(storage={'root_dir': carpeta})
+        crawler.crawl(keyword=query, max_num=max_imgs)
+        for i, filename in enumerate(sorted(os.listdir(carpeta))):
+            origen = os.path.join(carpeta, filename)
+            destino = os.path.join(carpeta, f"img{i}.jpg")
+            os.rename(origen, destino)
+
+    def cargar_imagenes(busq_idx):
+        global imagenes, indice_imagen
+        carpeta = os.path.join(carpeta_base, f"busqueda_{busq_idx}")
+        imagenes = sorted([os.path.join(carpeta, f) for f in os.listdir(carpeta) if f.endswith(".jpg")])
+        indice_imagen = 0
+        actualizar_imagen()
+
+    def actualizar_imagen():
+        with imagen_widget:
+            clear_output(wait=True)
+            if imagenes:
+                modificada = f"imagen_{indice_busqueda}_{indice_imagen}.jpg"
+                if os.path.exists(modificada):
+                    display(widgets.Image(value=open(modificada, 'rb').read(), format='jpg', width=480))
+                else:
+                    display(widgets.Image(value=open(imagenes[indice_imagen], 'rb').read(), format='jpg', width=480))
+
+                contador.value = f"Búsqueda {indice_busqueda+1}/{len(busquedas)} · Imagen {indice_imagen+1}/{len(imagenes)}"
+                if len(guiones) > indice_busqueda:
+                    textbox_guion_individual.value = guiones[indice_busqueda]
+
             else:
-                display(widgets.Image(value=open(imagenes[indice_imagen], 'rb').read(), format='jpg', width=480))
+                contador.value = "❌ Sin imágenes"
 
-            contador.value = f"Búsqueda {indice_busqueda+1}/{len(busquedas)} · Imagen {indice_imagen+1}/{len(imagenes)}"
-            if len(guiones) > indice_busqueda:
-                textbox_guion_individual.value = guiones[indice_busqueda]
-
-        else:
-            contador.value = "❌ Sin imágenes"
-
-    actualizar_boton_seleccion()
+        actualizar_boton_seleccion()
 
 
 
-def generar_carrusel_desde_guiones(guiones=None, carpeta=None, busq_idx=None):
-    #print("🖼 Generando carrusel de imágenes con sombra, fondo y ajuste automático...")
+    def generar_carrusel_desde_guiones(guiones=None, carpeta=None, busq_idx=None):
+        #print("🖼 Generando carrusel de imágenes con sombra, fondo y ajuste automático...")
 
-    if guiones is None:
-        guiones = [line.strip() for line in textbox_guiones.value.strip().splitlines() if line.strip()]
+        if guiones is None:
+            guiones = [line.strip() for line in textbox_guiones.value.strip().splitlines() if line.strip()]
 
-    if carpeta and busq_idx is not None:
-        guiones = [guiones[0]]  # Solo 1 guion para esa búsqueda
+        if carpeta and busq_idx is not None:
+            guiones = [guiones[0]]  # Solo 1 guion para esa búsqueda
 
-    for i, texto in enumerate(guiones):
-        idx = busq_idx if busq_idx is not None else i
-        carpeta_img = carpeta if carpeta else os.path.join(carpeta_base, f"busqueda_{idx}")
+        for i, texto in enumerate(guiones):
+            idx = busq_idx if busq_idx is not None else i
+            carpeta_img = carpeta if carpeta else os.path.join(carpeta_base, f"busqueda_{idx}")
 
-        for j in range(max_imgs):
-            img_path = os.path.join(carpeta_img, f"img{j}.jpg")
-            if not os.path.exists(img_path): continue
+            for j in range(max_imgs):
+                img_path = os.path.join(carpeta_img, f"img{j}.jpg")
+                if not os.path.exists(img_path): continue
 
-            img_cv = cv2.imread(img_path)
-            img_cv = recortar_centro_cuadrado(img_cv)
-            img_cv = cv2.resize(img_cv, (1080, 1080))
-            img_pil = Image.fromarray(cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB)).convert("RGBA")
-            draw = ImageDraw.Draw(img_pil, "RGBA")
+                img_cv = cv2.imread(img_path)
+                img_cv = recortar_centro_cuadrado(img_cv)
+                img_cv = cv2.resize(img_cv, (1080, 1080))
+                img_pil = Image.fromarray(cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB)).convert("RGBA")
+                draw = ImageDraw.Draw(img_pil, "RGBA")
 
-            match = re.match(r"^\d+\.\s*(.+?):\s*(.+)", texto.strip())
-            if match:
-                titulo = match.group(1).strip()
-                contenido = match.group(2).strip()
-            else:
-                titulo = ""
-                contenido = texto.strip()
+                match = re.match(r"^\d+\.\s*(.+?):\s*(.+)", texto.strip())
+                if match:
+                    titulo = match.group(1).strip()
+                    contenido = match.group(2).strip()
+                else:
+                    titulo = ""
+                    contenido = texto.strip()
 
-            font_size = 72
-            try:
+                font_size = 72
+                try:
+                    font = ImageFont.truetype(font_path, font_size)
+                except:
+                    font = ImageFont.load_default()
+
+                max_width = 1000
+                max_height = 800
+
+                if titulo:
+                    wrapped_title = textwrap.wrap(titulo, width=20)
+                    while (any(draw.textlength(line, font=font) > max_width for line in wrapped_title) or
+                          (len(wrapped_title) * (font_size + 20)) > max_height // 3) and font_size > 30:
+                        font_size -= 2
+                        font = ImageFont.truetype(font_path, font_size)
+                        wrapped_title = textwrap.wrap(titulo, width=25)
+                    title_font = font
+                    title_line_height = font_size + 20
+                else:
+                    wrapped_title = []
+                    title_line_height = 0
+                    title_font = None
+
+                if titulo:
+                    max_width = 950
+                    font_size = 54
+                    wrapped_content = textwrap.wrap(contenido, width=40)
+                else:
+                    max_width = 1000
+                    font_size = 72
+                    wrapped_content = textwrap.wrap(contenido, width=20)
+
                 font = ImageFont.truetype(font_path, font_size)
-            except:
-                font = ImageFont.load_default()
-
-            max_width = 1000
-            max_height = 800
-
-            if titulo:
-                wrapped_title = textwrap.wrap(titulo, width=20)
-                while (any(draw.textlength(line, font=font) > max_width for line in wrapped_title) or
-                       (len(wrapped_title) * (font_size + 20)) > max_height // 3) and font_size > 30:
+                while (any(draw.textlength(line, font=font) > max_width for line in wrapped_content) or
+                      (len(wrapped_content) * (font_size + 20)) > (max_height - (title_line_height * len(wrapped_title)))) and font_size > 30:
                     font_size -= 2
                     font = ImageFont.truetype(font_path, font_size)
-                    wrapped_title = textwrap.wrap(titulo, width=25)
-                title_font = font
-                title_line_height = font_size + 20
-            else:
-                wrapped_title = []
-                title_line_height = 0
-                title_font = None
+                    wrapped_content = textwrap.wrap(contenido, width=25)
+                content_font = font
+                content_line_height = font_size + 20
 
-            if titulo:
-                max_width = 950
-                font_size = 54
-                wrapped_content = textwrap.wrap(contenido, width=40)
-            else:
-                max_width = 1000
-                font_size = 72
-                wrapped_content = textwrap.wrap(contenido, width=20)
+                espacio_entre = 30
+                total_height = (len(wrapped_title) * title_line_height) + espacio_entre + (len(wrapped_content) * content_line_height)
+                y_inicio = (1080 - total_height) // 2
 
-            font = ImageFont.truetype(font_path, font_size)
-            while (any(draw.textlength(line, font=font) > max_width for line in wrapped_content) or
-                   (len(wrapped_content) * (font_size + 20)) > (max_height - (title_line_height * len(wrapped_title)))) and font_size > 30:
-                font_size -= 2
-                font = ImageFont.truetype(font_path, font_size)
-                wrapped_content = textwrap.wrap(contenido, width=25)
-            content_font = font
-            content_line_height = font_size + 20
+                overlay = Image.new("RGBA", img_pil.size, (0, 0, 0, 0))
+                draw_overlay = ImageDraw.Draw(overlay)
+                ancho_title = max([draw.textlength(l, font=title_font) for l in wrapped_title]) if wrapped_title else 0
+                ancho_content = max([draw.textlength(l, font=content_font) for l in wrapped_content]) if wrapped_content else 0
+                ancho_max = max(ancho_title, ancho_content)
+                x_fondo = (1080 - ancho_max) // 2 - 40
+                y_fondo = y_inicio - 30
+                w_fondo = ancho_max + 80
+                h_fondo = total_height + 60
 
-            espacio_entre = 30
-            total_height = (len(wrapped_title) * title_line_height) + espacio_entre + (len(wrapped_content) * content_line_height)
-            y_inicio = (1080 - total_height) // 2
+                draw_overlay.rounded_rectangle([(x_fondo, y_fondo), (x_fondo + w_fondo, y_fondo + h_fondo)],
+                                              radius=40, fill=(0, 0, 0, 80))
+                img_pil = Image.alpha_composite(img_pil, overlay)
+                draw = ImageDraw.Draw(img_pil)
 
-            overlay = Image.new("RGBA", img_pil.size, (0, 0, 0, 0))
-            draw_overlay = ImageDraw.Draw(overlay)
-            ancho_title = max([draw.textlength(l, font=title_font) for l in wrapped_title]) if wrapped_title else 0
-            ancho_content = max([draw.textlength(l, font=content_font) for l in wrapped_content]) if wrapped_content else 0
-            ancho_max = max(ancho_title, ancho_content)
-            x_fondo = (1080 - ancho_max) // 2 - 40
-            y_fondo = y_inicio - 30
-            w_fondo = ancho_max + 80
-            h_fondo = total_height + 60
+                y = y_inicio
+                for linea in wrapped_title:
+                    w = draw.textlength(linea, font=title_font)
+                    x = (1080 - w) // 2
+                    for dx in [-2, -1, 0, 1, 2]:
+                        for dy in [-2, -1, 0, 1, 2]:
+                            if dx != 0 or dy != 0:
+                                draw.text((x+dx, y+dy), linea, font=title_font, fill=(0,0,0,255))
+                    draw.text((x, y), linea, font=title_font, fill=(255,255,255,255))
+                    y += title_line_height
 
-            draw_overlay.rounded_rectangle([(x_fondo, y_fondo), (x_fondo + w_fondo, y_fondo + h_fondo)],
-                                           radius=40, fill=(0, 0, 0, 80))
-            img_pil = Image.alpha_composite(img_pil, overlay)
-            draw = ImageDraw.Draw(img_pil)
+                y += espacio_entre
+                for linea in wrapped_content:
+                    w = draw.textlength(linea, font=content_font)
+                    x = (1080 - w) // 2
+                    for dx in [-2, -1, 0, 1, 2]:
+                        for dy in [-2, -1, 0, 1, 2]:
+                            if dx != 0 or dy != 0:
+                                draw.text((x+dx, y+dy), linea, font=content_font, fill=(0,0,0,255))
+                    draw.text((x, y), linea, font=content_font, fill=(255,255,255,255))
+                    y += content_line_height
 
-            y = y_inicio
-            for linea in wrapped_title:
-                w = draw.textlength(linea, font=title_font)
-                x = (1080 - w) // 2
-                for dx in [-2, -1, 0, 1, 2]:
-                    for dy in [-2, -1, 0, 1, 2]:
-                        if dx != 0 or dy != 0:
-                            draw.text((x+dx, y+dy), linea, font=title_font, fill=(0,0,0,255))
-                draw.text((x, y), linea, font=title_font, fill=(255,255,255,255))
-                y += title_line_height
+                output = f"imagen_{idx}_{j}.jpg"
+                img_pil.convert("RGB").save(output)
+                #print(f"✅ Imagen generada: {output}")
 
-            y += espacio_entre
-            for linea in wrapped_content:
-                w = draw.textlength(linea, font=content_font)
-                x = (1080 - w) // 2
-                for dx in [-2, -1, 0, 1, 2]:
-                    for dy in [-2, -1, 0, 1, 2]:
-                        if dx != 0 or dy != 0:
-                            draw.text((x+dx, y+dy), linea, font=content_font, fill=(0,0,0,255))
-                draw.text((x, y), linea, font=content_font, fill=(255,255,255,255))
-                y += content_line_height
-
-            output = f"imagen_{idx}_{j}.jpg"
-            img_pil.convert("RGB").save(output)
-            #print(f"✅ Imagen generada: {output}")
-
-# Callbacks
-def generar_carrusel(b):
-    global busquedas, guiones
-    busquedas = [line.strip() for line in textbox_busquedas.value.strip().splitlines() if line.strip()]
-    guiones = [line.strip() for line in textbox_guiones.value.strip().splitlines() if line.strip()]
-    for i, query in enumerate(busquedas):
-        carpeta = os.path.join(carpeta_base, f"busqueda_{i}")
-        descargar_imagenes(query, carpeta)
-    cargar_imagenes(0)
-    generar_carrusel_desde_guiones()
-    textbox_busqueda_individual.value = busquedas[0] if busquedas else ""
-    boton_actualizar.disabled = False
-    boton_reemplazar.disabled = False
-    boton_busqueda_ant.disabled = False
-    boton_busqueda_sig.disabled = False
-    boton_izq.disabled = False
-    boton_der.disabled = False
-    actualizar_imagen()
-
-
-def busqueda_anterior(b):
-    global indice_busqueda
-    if busquedas:
-        indice_busqueda = (indice_busqueda - 1) % len(busquedas)
-        textbox_busqueda_individual.value = busquedas[indice_busqueda]
-        cargar_imagenes(indice_busqueda)
-
-def busqueda_siguiente(b):
-    global indice_busqueda
-    if busquedas:
-        indice_busqueda = (indice_busqueda + 1) % len(busquedas)
-        textbox_busqueda_individual.value = busquedas[indice_busqueda]
-        cargar_imagenes(indice_busqueda)
-
-def anterior_imagen(b):
-    global indice_imagen
-    if imagenes:
-        indice_imagen = (indice_imagen - 1) % len(imagenes)
-        actualizar_imagen()
-
-def siguiente_imagen(b):
-    global indice_imagen
-    if imagenes:
-        indice_imagen = (indice_imagen + 1) % len(imagenes)
-        actualizar_imagen()
-
-def actualizar_busqueda_y_guion(b):
-    query = textbox_busqueda_individual.value.strip()
-    nuevo_guion = textbox_guion_individual.value.strip()
-
-    if not query:
-        return
-
-    valor_actual = busquedas[indice_busqueda] if indice_busqueda < len(busquedas) else ""
-    guion_actual = guiones[indice_busqueda] if indice_busqueda < len(guiones) else ""
-
-    carpeta = os.path.join(carpeta_base, f"busqueda_{indice_busqueda}")
-
-    if query != valor_actual:
-        if indice_busqueda < len(busquedas):
-            busquedas[indice_busqueda] = query
-        else:
-            busquedas.append(query)
-
-        if query != "Imagen Personalizada":
+    # Callbacks
+    def generar_carrusel(b):
+        global busquedas, guiones
+        busquedas = [line.strip() for line in textbox_busquedas.value.strip().splitlines() if line.strip()]
+        guiones = [line.strip() for line in textbox_guiones.value.strip().splitlines() if line.strip()]
+        for i, query in enumerate(busquedas):
+            carpeta = os.path.join(carpeta_base, f"busqueda_{i}")
             descargar_imagenes(query, carpeta)
+        cargar_imagenes(0)
+        generar_carrusel_desde_guiones()
+        textbox_busqueda_individual.value = busquedas[0] if busquedas else ""
+        boton_actualizar.disabled = False
+        boton_reemplazar.disabled = False
+        boton_busqueda_ant.disabled = False
+        boton_busqueda_sig.disabled = False
+        boton_izq.disabled = False
+        boton_der.disabled = False
+        actualizar_imagen()
 
-    if nuevo_guion != guion_actual:
-        if indice_busqueda < len(guiones):
-            guiones[indice_busqueda] = nuevo_guion
+
+    def busqueda_anterior(b):
+        global indice_busqueda
+        if busquedas:
+            indice_busqueda = (indice_busqueda - 1) % len(busquedas)
+            textbox_busqueda_individual.value = busquedas[indice_busqueda]
+            cargar_imagenes(indice_busqueda)
+
+    def busqueda_siguiente(b):
+        global indice_busqueda
+        if busquedas:
+            indice_busqueda = (indice_busqueda + 1) % len(busquedas)
+            textbox_busqueda_individual.value = busquedas[indice_busqueda]
+            cargar_imagenes(indice_busqueda)
+
+    def anterior_imagen(b):
+        global indice_imagen
+        if imagenes:
+            indice_imagen = (indice_imagen - 1) % len(imagenes)
+            actualizar_imagen()
+
+    def siguiente_imagen(b):
+        global indice_imagen
+        if imagenes:
+            indice_imagen = (indice_imagen + 1) % len(imagenes)
+            actualizar_imagen()
+
+    def actualizar_busqueda_y_guion(b):
+        query = textbox_busqueda_individual.value.strip()
+        nuevo_guion = textbox_guion_individual.value.strip()
+
+        if not query:
+            return
+
+        valor_actual = busquedas[indice_busqueda] if indice_busqueda < len(busquedas) else ""
+        guion_actual = guiones[indice_busqueda] if indice_busqueda < len(guiones) else ""
+
+        carpeta = os.path.join(carpeta_base, f"busqueda_{indice_busqueda}")
+
+        if query != valor_actual:
+            if indice_busqueda < len(busquedas):
+                busquedas[indice_busqueda] = query
+            else:
+                busquedas.append(query)
+
+            if query != "Imagen Personalizada":
+                descargar_imagenes(query, carpeta)
+
+        if nuevo_guion != guion_actual:
+            if indice_busqueda < len(guiones):
+                guiones[indice_busqueda] = nuevo_guion
+            else:
+                guiones.append(nuevo_guion)
+
+        # ✅ Generar carrusel si cambió algo
+        if query != valor_actual or nuevo_guion != guion_actual:
+            generar_carrusel_desde_guiones([guiones[indice_busqueda]], carpeta=carpeta, busq_idx=indice_busqueda)
+
+        cargar_imagenes(indice_busqueda)
+        textbox_busquedas.value = "\n".join(busquedas)
+        textbox_guiones.value = "\n".join(guiones)
+
+
+
+    def actualizar_boton_seleccion():
+        sel = seleccionadas.get(indice_busqueda)
+
+        if sel is None:
+            # Nada seleccionado aún en esta búsqueda
+            boton_seleccionar_imagen.description = "👉"
+            boton_seleccionar_imagen.disabled = False
+        elif sel == indice_imagen:
+            # Esta imagen está seleccionada
+            boton_seleccionar_imagen.description = "✅"
+            boton_seleccionar_imagen.disabled = False
         else:
-            guiones.append(nuevo_guion)
-
-    # ✅ Generar carrusel si cambió algo
-    if query != valor_actual or nuevo_guion != guion_actual:
-        generar_carrusel_desde_guiones([guiones[indice_busqueda]], carpeta=carpeta, busq_idx=indice_busqueda)
-
-    cargar_imagenes(indice_busqueda)
-    textbox_busquedas.value = "\n".join(busquedas)
-    textbox_guiones.value = "\n".join(guiones)
+            # Otra imagen está seleccionada
+            boton_seleccionar_imagen.description = "❌"
+            boton_seleccionar_imagen.disabled = True
 
 
+    def marcar_imagen_con_boton(b):
+        sel = seleccionadas.get(indice_busqueda)
 
-def actualizar_boton_seleccion():
-    sel = seleccionadas.get(indice_busqueda)
+        if sel == indice_imagen:
+            # Deseleccionar
+            del seleccionadas[indice_busqueda]
+        else:
+            # Seleccionar esta imagen
+            seleccionadas[indice_busqueda] = indice_imagen
 
-    if sel is None:
-        # Nada seleccionado aún en esta búsqueda
-        boton_seleccionar_imagen.description = "👉"
-        boton_seleccionar_imagen.disabled = False
-    elif sel == indice_imagen:
-        # Esta imagen está seleccionada
-        boton_seleccionar_imagen.description = "✅"
-        boton_seleccionar_imagen.disabled = False
+        actualizar_boton_seleccion()
+        actualizar_boton_descargar()
+
+    def actualizar_boton_descargar():
+        boton_descargar_imagenes.disabled = len(seleccionadas) == 0
+
+    def reemplazar_imagen_manual(b):
+
+        if not uploader_widget.value:
+            print("❌ No se ha subido ninguna imagen.")
+            return
+
+
+        info = next(iter(uploader_widget.value.values()))
+        contenido = info['content']
+        nombre = info['metadata']['name']
+
+        # Guardar archivo temporal
+        ruta_origen = f"temp_{nombre}"
+        with open(ruta_origen, "wb") as f:
+            f.write(contenido)
+
+        carpeta = os.path.join(carpeta_base, f"busqueda_{indice_busqueda}")
+        if not os.path.exists(carpeta):
+            os.makedirs(carpeta, exist_ok=True)
+
+        img_cv = cv2.imread(ruta_origen)
+        if img_cv is None:
+            print("❌ Error: Imagen no válida.")
+            return
+
+        img_cv = recortar_centro_cuadrado(img_cv)
+        img_cv = cv2.resize(img_cv, (1080, 1080))
+        cv2.imwrite(ruta_origen, img_cv)
+
+        for i in range(max_imgs):
+            destino = os.path.join(carpeta, f"img{i}.jpg")
+            shutil.copy2(ruta_origen, destino)
+
+            nombre_generada = f"imagen_{indice_busqueda}_{i}.jpg"
+            shutil.copy2(ruta_origen, nombre_generada)
+
+        textbox_busqueda_individual.value = "Imagen Personalizada"
+        actualizar_busqueda_y_guion(None)
+
+        boton_reemplazar.disabled = False
+        uploader_widget.layout = widgets.Layout(width='0px', height='0px')
+        boton_reemplazar.layout = widgets.Layout(width='auto', height='auto')
+        uploader_widget.value.clear()
+        uploader_widget._counter = 0
+
+        #print(f"✅ Imagen personalizada cambiada para búsqueda {indice_busqueda+1}")
+
+
+
+    def lanzar_file_selector(b):
+        boton_reemplazar.disabled = True
+        uploader_widget.layout = widgets.Layout(width='auto', height='auto')
+        boton_reemplazar.layout = widgets.Layout(width='0px', height='0px')
+
+        time.sleep(5)
+        boton_reemplazar.disabled = False
+        uploader_widget.layout = widgets.Layout(width='0px', height='0px')
+        boton_reemplazar.layout = widgets.Layout(width='auto', height='auto')
+        uploader_widget.value.clear()
+        uploader_widget._counter = 0
+
+
+
+
+    def descargar_imagenes_terminadas(b):
+        for busq_idx, img_idx in seleccionadas.items():
+            ruta = f"imagen_{busq_idx}_{img_idx}.jpg"
+            if os.path.exists(ruta):
+                files.download(ruta)
+
+
+    # Conectar eventos
+    boton_generar_carrusel.on_click(generar_carrusel)
+    boton_busqueda_ant.on_click(busqueda_anterior)
+    boton_busqueda_sig.on_click(busqueda_siguiente)
+    boton_izq.on_click(anterior_imagen)
+    boton_der.on_click(siguiente_imagen)
+    boton_actualizar.on_click(actualizar_busqueda_y_guion)
+    boton_seleccionar_imagen.on_click(marcar_imagen_con_boton)
+    uploader_widget.observe(reemplazar_imagen_manual, names='value')
+    boton_reemplazar.on_click(lanzar_file_selector)
+    boton_descargar_imagenes.on_click(descargar_imagenes_terminadas)
+    boton_bloque.on_click(mostrar_bloque)
+    boton_linea.on_click(mostrar_linea)
+
+    boton_bloque.add_class("boton-blanco")
+    textbox_guiones.add_class("etiquetas-color-verde")
+    textbox_busquedas.add_class("etiquetas-color-azul")
+    textbox_guion_individual.add_class("etiquetas-color-verde")
+    textbox_busqueda_individual.add_class("etiquetas-color-azul")
+    boton_generar_carrusel.add_class("boton-amarillo")
+    boton_busqueda_ant.add_class("boton-verde-puro")
+    boton_busqueda_sig.add_class("boton-verde-puro")
+    boton_izq.add_class("boton-cyan")
+    boton_der.add_class("boton-cyan")
+    boton_linea.add_class("boton-blanco")
+    boton_actualizar.add_class("boton-amarillo")
+    boton_reemplazar.add_class("boton-blanco")
+    boton_seleccionar_imagen.add_class("boton-blanco")
+    boton_descargar_imagenes.add_class("boton-blanco")
+
+    # Mostrar interfaz
+    display(textbox_guiones)
+    display(textbox_busquedas)
+    display(boton_bloque)
+    display(boton_generar_carrusel)
+    display(widgets.HBox([boton_busqueda_ant, textbox_guion_individual, boton_busqueda_sig]))
+    display(widgets.HBox([boton_izq, textbox_busqueda_individual, boton_der, boton_linea]))
+    display(widgets.HBox([boton_actualizar, boton_reemplazar, uploader_widget]))
+    display(widgets.HBox([boton_seleccionar_imagen, boton_descargar_imagenes, contador]))
+
+
+    display(imagen_widget)
+
+
+def usar_IA(b):
+    global bloques_terminos, texto_frases, texto_terminos
+    if textbox_clave_IA.value and textbox_tema.value:
+        if not bandera:
+            print("Generando respuesta con IA...")
+            #@title frases
+            DEEPSEEK_API_KEY = textbox_clave_IA.value.strip()
+
+
+            client = OpenAI(api_key=DEEPSEEK_API_KEY, base_url="https://openrouter.ai/api/v1/")
+
+            # 🔁 Paso 1: generar varias frases
+            cantidad = cantidad_imagenes_box.value.strip()
+            tema = textbox_tema.value.strip()
+            response = client.chat.completions.create(
+                model="deepseek/deepseek-r1:free",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": f"Dame {cantidad} frases sobre {tema}, separadas por salto de línea, aptas para carruseles de TikTok. Cada frase debe tener entre 50 y 100 caracteres, excepto la primera  y la última frase que tendrán máximo 30 caracteres. Con lenguaje coloquial sin términos técnicos. Entrégalas separadas solo por salto de línea, sin numerarlas, sin contexto ni resumen, sin emojis, la primera frase debe contener un gancho o título fuerte que llame la atención, las frases intermedias deben aportar mucho valor o conocimiento y la última frase debe tener un llamado a la acción, por ejemplo: 'sígueme para más' o 'guarda esta publicación'. En total devolverás {cantidad} líneas separadas por \n"
+                    }
+                ],
+                stream=False
+            )
+
+            frases = response.choices[0].message.content.strip().split("\n")
+
+
+            # 🔁 Paso 2 optimizado: obtener todos los términos en un solo request
+            frases_texto = "\n".join(frases)
+            joined_frases = "\n".join(frases)
+            if frases_texto.endswith("\n"):
+                frases_texto = frases_texto[:-1]
+
+            if joined_frases.endswith("\n"):
+                joined_frases = joined_frases[:-1]
+
+
+            # Paso 2: generar los términos alineados, usando las frases exactas
+            response2 = client.chat.completions.create(
+                model="deepseek/deepseek-r1:free",
+                messages=[{
+                    "role": "system",
+                    "content": f"Estas son {cantidad} frases para carruseles de TikTok:\n{joined_frases}\n\nDevuélveme 5 bloques con un término de búsqueda visual según cada frase y en orden, uno por línea y ordenado. Cada término debe tener máximo 5 palabras y servir para buscar imágenes limpias como fondo o imágenes minimalistas o también personas haciendo algo relacionado a la frase o cosas relacionadas a la frase. En definitiva debes entregarme {cantidad} términos de búsqueda por bloque, nada más que los términos, sin comillas, sin títulos, ni explicaciones."
+                }],
+                stream=False
+            )
+            terminos = response2.choices[0].message.content.strip().split("\n")
+
+            # Resultados listos
+            texto_frases = "\n".join(frases)
+            texto_terminos = "\n".join(terminos)
+
+            if texto_frases.endswith("\n"):
+                texto_frases = texto_frases[:-1]
+
+            if texto_terminos.endswith("\n"):
+                texto_terminos = texto_terminos[:-1]
+
+            # Procesar bloques y líneas
+            bloques_terminos = [bloque.strip().split("\n") for bloque in texto_terminos.strip().split("\n\n")]
+            clear_output()
+            usar_interfaz()
+        else:
+            print("aqui NO funciona la IA")
+            clear_output()
+            usar_interfaz()
     else:
-        # Otra imagen está seleccionada
-        boton_seleccionar_imagen.description = "❌"
-        boton_seleccionar_imagen.disabled = True
-
-
-def marcar_imagen_con_boton(b):
-    sel = seleccionadas.get(indice_busqueda)
-
-    if sel == indice_imagen:
-        # Deseleccionar
-        del seleccionadas[indice_busqueda]
-    else:
-        # Seleccionar esta imagen
-        seleccionadas[indice_busqueda] = indice_imagen
-
-    actualizar_boton_seleccion()
-    actualizar_boton_descargar()
-
-def actualizar_boton_descargar():
-    boton_descargar_imagenes.disabled = len(seleccionadas) == 0
-
-def reemplazar_imagen_manual(b):
-
-    if not uploader_widget.value:
-        print("❌ No se ha subido ninguna imagen.")
-        return
-
-
-    info = next(iter(uploader_widget.value.values()))
-    contenido = info['content']
-    nombre = info['metadata']['name']
-
-    # Guardar archivo temporal
-    ruta_origen = f"temp_{nombre}"
-    with open(ruta_origen, "wb") as f:
-        f.write(contenido)
-
-    carpeta = os.path.join(carpeta_base, f"busqueda_{indice_busqueda}")
-    if not os.path.exists(carpeta):
-        os.makedirs(carpeta, exist_ok=True)
-
-    img_cv = cv2.imread(ruta_origen)
-    if img_cv is None:
-        print("❌ Error: Imagen no válida.")
-        return
-
-    img_cv = recortar_centro_cuadrado(img_cv)
-    img_cv = cv2.resize(img_cv, (1080, 1080))
-    cv2.imwrite(ruta_origen, img_cv)
-
-    for i in range(max_imgs):
-        destino = os.path.join(carpeta, f"img{i}.jpg")
-        shutil.copy2(ruta_origen, destino)
-
-        nombre_generada = f"imagen_{indice_busqueda}_{i}.jpg"
-        shutil.copy2(ruta_origen, nombre_generada)
-
-    textbox_busqueda_individual.value = "Imagen Personalizada"
-    actualizar_busqueda_y_guion(None)
-
-    boton_reemplazar.disabled = False
-    uploader_widget.layout = widgets.Layout(width='0px', height='0px')
-    boton_reemplazar.layout = widgets.Layout(width='auto', height='auto')
-    uploader_widget.value.clear()
-    uploader_widget._counter = 0
-
-    #print(f"✅ Imagen personalizada cambiada para búsqueda {indice_busqueda+1}")
+        print("Completa los campos")
 
 
 
-def lanzar_file_selector(b):
-    boton_reemplazar.disabled = True
-    uploader_widget.layout = widgets.Layout(width='auto', height='auto')
-    boton_reemplazar.layout = widgets.Layout(width='0px', height='0px')
+textbox_clave_IA = widgets.Text(placeholder="Clave modelo IA...", layout=widgets.Layout(width='300px'), value = "CLAVE MODELO IA")
+cantidad_imagenes_box = widgets.Dropdown(
+    options=['8', '7', '6', '5', '4', '3'],
+    value='3',
+    description='Cantidad de imágenes:',
+    layout=widgets.Layout(width='30%')
+)
+textbox_tema = widgets.Text(placeholder="Escribe un tema...", layout=widgets.Layout(width='300px'))
+boton_pensar = widgets.Button(description="🧠 PENSAR")
 
-    time.sleep(5)
-    boton_reemplazar.disabled = False
-    uploader_widget.layout = widgets.Layout(width='0px', height='0px')
-    boton_reemplazar.layout = widgets.Layout(width='auto', height='auto')
-    uploader_widget.value.clear()
-    uploader_widget._counter = 0
+textbox_clave_IA.add_class("modo-oscuro")
+cantidad_imagenes_box.add_class("modo-oscuro")
+textbox_tema.add_class("modo-oscuro")
+boton_pensar.add_class("boton-blanco")
 
-
-
-
-def descargar_imagenes_terminadas(b):
-    for busq_idx, img_idx in seleccionadas.items():
-        ruta = f"imagen_{busq_idx}_{img_idx}.jpg"
-        if os.path.exists(ruta):
-            files.download(ruta)
-
-
-# Conectar eventos
-boton_generar_carrusel.on_click(generar_carrusel)
-boton_busqueda_ant.on_click(busqueda_anterior)
-boton_busqueda_sig.on_click(busqueda_siguiente)
-boton_izq.on_click(anterior_imagen)
-boton_der.on_click(siguiente_imagen)
-boton_actualizar.on_click(actualizar_busqueda_y_guion)
-boton_seleccionar_imagen.on_click(marcar_imagen_con_boton)
-uploader_widget.observe(reemplazar_imagen_manual, names='value')
-boton_reemplazar.on_click(lanzar_file_selector)
-boton_descargar_imagenes.on_click(descargar_imagenes_terminadas)
-
-textbox_guiones.add_class("etiquetas-color-verde")
-textbox_busquedas.add_class("etiquetas-color-azul")
-textbox_guion_individual.add_class("etiquetas-color-verde")
-textbox_busqueda_individual.add_class("etiquetas-color-azul")
-boton_generar_carrusel.add_class("boton-amarillo")
-boton_busqueda_ant.add_class("boton-verde-puro")
-boton_busqueda_sig.add_class("boton-verde-puro")
-boton_izq.add_class("boton-cyan")
-boton_der.add_class("boton-cyan")
-boton_actualizar.add_class("boton-amarillo")
-boton_reemplazar.add_class("boton-blanco")
-boton_seleccionar_imagen.add_class("boton-blanco")
-boton_descargar_imagenes.add_class("boton-blanco")
+boton_pensar.on_click(usar_IA)
 
 # Mostrar interfaz
-display(textbox_guiones)
-display(textbox_busquedas)
-display(boton_generar_carrusel)
-display(widgets.HBox([boton_busqueda_ant, textbox_guion_individual, boton_busqueda_sig]))
-display(widgets.HBox([boton_izq, textbox_busqueda_individual, boton_der]))
-display(widgets.HBox([boton_actualizar, boton_reemplazar, uploader_widget]))
-display(widgets.HBox([boton_seleccionar_imagen, boton_descargar_imagenes, contador]))
-display(imagen_widget)
+display(textbox_clave_IA, cantidad_imagenes_box, textbox_tema, boton_pensar)
